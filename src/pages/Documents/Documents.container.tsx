@@ -1,5 +1,4 @@
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
 import httpBase from '../../services/httpBase';
@@ -9,6 +8,7 @@ import DocumentsComponent from './Documents.component';
 const DocumentsContainer = () => {
   const dispatch = useDispatch();
   const { documents, loading, error } = useSelector((state: RootState) => state.documents);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchDocuments = async () => {
     dispatch(setLoading(true));
@@ -32,6 +32,40 @@ const DocumentsContainer = () => {
     });
   };
 
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    dispatch(setLoading(true));
+    
+    if (!term.trim()) {
+      fetchDocuments();
+      return;
+    }
+    
+    httpBase.post('/query', {
+      collection_name: "test_page_info",
+      query_text: term,
+      limit: 10
+    }, {
+      successCallback: (response) => {
+        if (response.data && response.data.source_nodes) {
+          const queryResults = response.data.source_nodes.map((node: any) => ({
+            text: node.text,
+            metadata: node.metadata
+          }));
+          dispatch(setDocuments(queryResults));
+        } else {
+          dispatch(setDocuments([]));
+        }
+      },
+      failureCallback: (error) => {
+        dispatch(setError(error.message));
+      },
+      finalCallback: () => {
+        dispatch(setLoading(false));
+      }
+    });
+  };
+
   useEffect(() => {
     fetchDocuments();
   }, []);
@@ -41,6 +75,7 @@ const DocumentsContainer = () => {
     loading={loading}
     error={error}
     onRefresh={fetchDocuments}
+    onSearch={handleSearch}
   />;
 };
 
